@@ -5,6 +5,13 @@ public class Arrays {
     private Arrays() {
     }
 
+    /*
+    structure:
+    1st layer: [x1], [x2], ..., [xn]
+    2nd: [x1, w1, ... wn, b1], ..., [xm, w1, ..., wn, bm]
+    ...
+     */
+
     public static double[] getWages(int size, double min, double max) {
         double[] array = new double[size + 1];
         array[0] = 0.0;
@@ -34,16 +41,22 @@ public class Arrays {
     public static double[][][] runEpoch(double[][][] network, double[][] bias) {
         for (int i = 1; i < network.length; i++) { // for every layer
             for (int j = 0; j < network[i].length; j++) { // for every neuron
-                network[i][j][0] = sigmoid(countSum(network, i, j)) + bias[i - 1][j];
+                // activation = dot product of wages and previous layers activations + bias
+                network[i][j][0] = sigmoid(countSum(network, i, j)) + network[i][j][network[i][j].length - 1];
             }
         }
         return network;
     }
 
+    // graient descent (pl. gradient coś tam)
+    public static double[] countGradientDescent(double[][][] network, double[] gradientDescent) {
+
+        return gradientDescent;
+    }
+
     private static double sigmoid(double v) {
         return 1.0 / (1.0 - Math.exp(-v));
     }
-
 
     private static double countSum(double[][][] network, int layer, int neuron) {
         double sum = 0.0;
