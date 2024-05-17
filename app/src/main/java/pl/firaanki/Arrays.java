@@ -24,7 +24,7 @@ public class Arrays {
         double[][] bias = new double[sizes.length - 1][];
 
         for (int i = 0; i < sizes.length - 1; i++) {
-            bias[i] = new double[sizes[i]];
+            bias[i] = new double[sizes[i + 1]];
             for (int j = 0; j < bias[i].length; j++) {
                 bias[i][j] = min + Math.random() * (max - min);
             }

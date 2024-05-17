@@ -20,6 +20,17 @@ public class ArraysTest extends TestCase {
         }
     }
 
+    public void testGetBiases() {
+        double[][] biases = Arrays.getBias(new int[]{4,7,3}, -1, 1);
+        for (double[] db : biases) {
+            System.out.println("---layer---");
+            for (double dbs : db) {
+                System.out.print(dbs + " ");
+            }
+            System.out.println();
+        }
+    }
+
     public void testGetWages() {
         double[] wages = Arrays.getWages(5, -1,1);
         for (double wage : wages) {

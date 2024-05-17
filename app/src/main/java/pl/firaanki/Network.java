@@ -12,12 +12,21 @@ public class Network {
         this.sizes = sizes;
         weights = Arrays.getWeights(sizes, min, max);
         biases = Arrays.getBias(sizes, min, max);
-        activations = new double[sizes.length - 1][];
+        activations = new double[sizes.length][];
     }
 
     public void startNetwork(int epochCount, double learningRate, double[][] inputs, double[][] outputs) {
-        double[][][] bigGradient = new double[sizes.length - 2][][];
+        int gradientSize = sizes.length - 1;
+        double[][][] bigGradient = new double[gradientSize][][];
         double[][][] gradient;
+
+        for (int i = 0; i < gradientSize; i++) {
+            bigGradient[i] = new double[sizes[i + 1]][];
+            for (int j = 0; j < sizes[i + 1]; j++) {
+                // create space for weights & bias
+                bigGradient[i][j] = new double[sizes[i] + 1];
+            }
+        }
 
         for (int epoch = 0; epoch < epochCount; epoch++) {
             gradient = countGradientDescent(inputs[epoch], outputs[epoch]);
@@ -30,7 +39,7 @@ public class Network {
             }
         }
 
-        for (int i = 0; i < sizes.length - 2; i++) { // for every layer
+        for (int i = 0; i < gradientSize; i++) { // for every layer
             for (int j = 0; j < sizes[i + 1]; j++) { // for every neuron
                 for (int k = 0; k < sizes[i]; k++) { // set new weights
                     weights[i][j][k] = (weights[i][j][k] - (learningRate / epochCount)) * bigGradient[i][j][k];
@@ -49,73 +58,82 @@ public class Network {
      */
     private double[][][] countGradientDescent(double[] input, double[] output) {
         countActivations(input);
-        double[][][] gradient = new double[sizes.length - 2][][];
-        double delta; // error for given neuron
+        double[][][] gradient = new double[sizes.length - 1][][];
+        double[] deltas = new double[sizes[sizes.length - 1]]; // błąd dla ostatniej warstwy
 
         // ---------------------------------
-        // count gradient for output layer
+        // Obliczanie gradientu dla warstwy wyjściowej
 
-        int lastLayerIndex = sizes.length - 1;
-        gradient[lastLayerIndex] = new double[sizes[lastLayerIndex]][];
-        for (int i = 0; i < sizes[lastLayerIndex]; i++) { // for every neuron in last layer
-            // create space for wages & bias
-            gradient[lastLayerIndex][i] = new double[sizes[lastLayerIndex - 1]];
+        int lastLayerIndex = sizes.length - 2;
+        gradient[lastLayerIndex] = new double[sizes[lastLayerIndex + 1]][];
 
-            // count delta for every activation
-            delta = (activations[lastLayerIndex][i] - output[i]) * sigmoidDerivative(sums[sums.length - 1][i]);
+        for (int i = 0; i < sizes[lastLayerIndex + 1]; i++) { // dla każdego neuronu w ostatniej warstwie
+            gradient[lastLayerIndex][i] = new double[sizes[lastLayerIndex] + 1]; // +1 dla biasu
 
-            // for every wage in neuron
-            for (int j = 0; j < sizes[lastLayerIndex - 1] - 1; j++) { // set every wage
-                gradient[gradient.length - 1][i][j] = delta * activations[lastLayerIndex - 1][j];
+            double sum = sums[lastLayerIndex][i];
+            double delta = (activations[lastLayerIndex + 1][i] - output[i]) * sigmoidDerivative(sum);
+            deltas[i] = delta;
+
+            for (int j = 0; j < sizes[lastLayerIndex]; j++) {
+                gradient[lastLayerIndex][i][j] = delta * activations[lastLayerIndex][j];
             }
 
-            // set bias
-            gradient[sizes[lastLayerIndex - 1]][i][sizes[lastLayerIndex - 2]] = delta;
+            gradient[lastLayerIndex][i][sizes[lastLayerIndex]] = delta; // bias
         }
 
         // ---------------------------------
-        // count gradient for hidden layers
+        // Obliczanie gradientu dla warstw ukrytych
 
-        for (int i = sizes.length - 2; i >= 1; i--) {
-            gradient[i] = new double[sizes[i]][]; // holds gradient for every wage&bias in layer
+        for (int i = lastLayerIndex - 1; i >= 0; i--) {
+            int neurons = sizes[i + 1];
+            double[] nextDeltas = new double[neurons];
+            gradient[i] = new double[neurons][];
 
-            for (int j = 0; j <= sizes[i]; j++) { // for every neuron
-                // create space for wages & bias
-                gradient[i][j] = new double[sizes[i - 1] + 1];
+            for (int j = 0; j < neurons; j++) {
+                gradient[i][j] = new double[sizes[i] + 1]; // +1 dla biasu
 
-                delta = (activations[i][j] - output[j]) * sigmoidDerivative(sums[i - 1][j]);
-
-                for (int k = 1; k < sizes[i - 1]; k++) { // update every wage
-                    // delta * activation of previous layer
-                    gradient[i][j][k] = delta * activations[i - 1][k - 1];
+                double deltaSum = 0.0;
+                for (int k = 0; k < sizes[i + 2]; k++) {
+                    deltaSum += weights[i + 1][k][j] * deltas[k];
                 }
 
-                gradient[i][j][sizes[i - 1]] = delta; // update bias
+                double delta = deltaSum * sigmoidDerivative(sums[i][j]);
+                nextDeltas[j] = delta;
+
+                for (int k = 0; k < sizes[i]; k++) {
+                    gradient[i][j][k] = delta * activations[i][k];
+                }
+
+                gradient[i][j][sizes[i]] = delta; // bias
             }
+
+            deltas = nextDeltas;
         }
 
         return gradient;
     }
 
     private void countActivations(double[] input) {
-        sums = new double[sizes.length - 2][];
+        sums = new double[sizes.length - 1][];
 
-        if (sizes[0] >= 0) System.arraycopy(input, 0, activations[0], 0, sizes[0]);
+        activations[0] = new double[sizes[0]];
+        System.arraycopy(input, 0, activations[0], 0, sizes[0]);
 
         double sum = 0.0;
 
         for (int i = 1; i < sizes.length; i++) { // for every layer but 1st
+            activations[i] = new double[sizes[i]]; // creates space for activations in layer
             sums[i - 1] = new double[sizes[i]]; // holds sums for every activation
 
             for (int j = 0; j < sizes[i]; j++) { // for every neuron in layer
                 for (int k = 0; k < sizes[i - 1]; k++) { // for all wages in neuron
                     // activation of previous layer * wage for that neuron
-                    sum += activations[i - 1][k] * weights[i][j][k];
+                    sum += activations[i - 1][k] * weights[i - 1][j][k];
                 }
                 // counts activation value for neuron
-                activations[i][j] = sigmoid(sum) + biases[i][j];
+                activations[i][j] = sigmoid(sum) + biases[i - 1][j];
                 // holds sum value for neuron
-                sums[i][j] = sum;
+                sums[i - 1][j] = sum;
 
                 sum = 0.0;
             }
