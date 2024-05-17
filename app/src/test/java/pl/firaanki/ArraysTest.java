@@ -7,6 +7,19 @@ import java.util.Set;
 
 public class ArraysTest extends TestCase {
 
+    public void testGetWeights() {
+        double[][][] weights = Arrays.getWeights(new int[]{4,7,3}, -1, 1);
+        for (double[][] db : weights) {
+            System.out.println("---layer---");
+            for (double[] dbs : db) {
+                for (double dbsm : dbs) {
+                    System.out.print(dbsm + " ");
+                }
+                System.out.println();
+            }
+        }
+    }
+
     public void testGetWages() {
         double[] wages = Arrays.getWages(5, -1,1);
         for (double wage : wages) {
