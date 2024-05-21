@@ -1,5 +1,8 @@
 package pl.firaanki;
 
+import java.util.*;
+import java.util.logging.Logger;
+
 public class Network {
 
     int[] sizes;
@@ -8,6 +11,8 @@ public class Network {
     double[][] activations;
     double[][] sums;
 
+    Logger logger = Logger.getLogger(getClass().getName());
+
     Network(int[] sizes, double min, double max) {
         this.sizes = sizes;
         weights = Arrays.getWeights(sizes, min, max);
@@ -15,7 +20,7 @@ public class Network {
         activations = new double[sizes.length][];
     }
 
-    public void startNetwork(int epochCount, double learningRate, double[][] inputs, double[][] outputs) {
+    public void startNetwork(int epochCount, int testCount, double learningRate, Map<double[], double[]> data) {
         int gradientSize = sizes.length - 1;
         double[][][] bigGradient = new double[gradientSize][][];
         double[][][] gradient;
@@ -29,9 +34,23 @@ public class Network {
             }
         }
 
+        ArrayList<Map.Entry<double[], double[]>> dataList = new ArrayList<>(data.entrySet());
+        ArrayList<Map.Entry<double[], double[]>> trainData = new ArrayList<>();
+        ArrayList<Map.Entry<double[], double[]>> testData = new ArrayList<>();
+
+        for (int i = 0; i < testCount; i++) {
+            trainData.add(dataList.get(i));
+        }
+        for (int i = testCount; i < 150; i++) {
+            testData.add(dataList.get(i));
+        }
+
+
+
         // sum of gradients in every epoch
         for (int epoch = 0; epoch < epochCount; epoch++) {
-            gradient = countGradientDescent(inputs[epoch], outputs[epoch]);
+            Map.Entry<double[], double[]> current = trainData.get(epoch);
+            gradient = countGradientDescent(current.getKey(), current.getValue());
             for (int i = 0; i < sizes.length - 1; i++) {
                 for (int j = 0; j < sizes[i + 1]; j++) {
                     for (int k = 0; k < sizes[i]; k++) {
@@ -51,6 +70,24 @@ public class Network {
                 biases[i][j] = (biases[i][j] - (learningRate / epochCount)) * bigGradient[i][j][sizes[i]];
             }
         }
+
+        Map.Entry<double[], double[]> test1 = testData.getFirst();
+        countActivations(test1.getKey());
+
+        logger.info(arrayToString(getOutput()));
+    }
+
+    double[] getOutput() {
+        int outputIndex = activations.length - 1;
+        return activations[outputIndex];
+    }
+
+    String arrayToString(double[] tab) {
+        StringBuilder sb = new StringBuilder();
+        for (double d : tab) {
+            sb.append(d + " ");
+        }
+        return sb.toString();
     }
 
     /**

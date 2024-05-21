@@ -1,40 +1,48 @@
 package pl.firaanki;
 
+import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.logging.Logger;
 
 public class FileHandler {
 
-    private String fileName;
+    private final String fileName;
 
     Logger logger = Logger.getLogger(getClass().getName());
-    private FileHandler(String fileName){this.fileName = fileName;}
 
-    static FileHandler getFile(String fileName) {
+    private FileHandler(String fileName) {
+        this.fileName = fileName;
+    }
+
+    public static FileHandler getFile(String fileName) {
         return new FileHandler(fileName);
     }
 
     public Map<double[], double[]> read() {
-        try {
-            Scanner myReader = new Scanner(new File(fileName));
-            List<String> lines = new ArrayList<>();
+        StringBuilder sb = new StringBuilder();
 
-            while (myReader.hasNextLine()) {
-                String line = myReader.nextLine();
-                lines.add(line);
+        Path path = new File(fileName).toPath().toAbsolutePath();
+        try (BufferedReader reader = Files.newBufferedReader(path)) {
+            int character;
+            while ((character = reader.read()) != -1) {
+                sb.append((char) character);
             }
-
-            return changeToDoubleArray(lines);
-
-        } catch (FileNotFoundException e) {
+        } catch (IOException e) {
             logger.info("raed exception");
         }
-        return null;
+
+        String longLine = sb.toString();
+        List<String> lines = List.of(longLine.split("\n"));
+
+        return format(lines);
     }
 
-    private Map<double[], double[]> changeToDoubleArray(List<String> lines) {
+    private Map<double[], double[]> format(List<String> lines) {
         Map<double[], double[]> data = new HashMap<>();
 
         for (String s : lines) {
