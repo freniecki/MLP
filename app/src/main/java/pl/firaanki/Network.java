@@ -20,6 +20,7 @@ public class Network {
         double[][][] bigGradient = new double[gradientSize][][];
         double[][][] gradient;
 
+        // initialize the network
         for (int i = 0; i < gradientSize; i++) {
             bigGradient[i] = new double[sizes[i + 1]][];
             for (int j = 0; j < sizes[i + 1]; j++) {
@@ -28,6 +29,7 @@ public class Network {
             }
         }
 
+        // sum of gradients in every epoch
         for (int epoch = 0; epoch < epochCount; epoch++) {
             gradient = countGradientDescent(inputs[epoch], outputs[epoch]);
             for (int i = 0; i < sizes.length - 1; i++) {
@@ -39,6 +41,7 @@ public class Network {
             }
         }
 
+        // update the weights and biases by gradient
         for (int i = 0; i < gradientSize; i++) { // for every layer
             for (int j = 0; j < sizes[i + 1]; j++) { // for every neuron
                 for (int k = 0; k < sizes[i]; k++) { // set new weights
