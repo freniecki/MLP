@@ -51,6 +51,9 @@ public class Network {
         for (int epoch = 0; epoch < epochCount; epoch++) {
             Map.Entry<double[], double[]> current = trainData.get(epoch);
             gradient = countGradientDescent(current.getKey(), current.getValue());
+            String info = "-----epoch " + epoch + " -----";
+            logger.info(info);
+            displayActivations();
             for (int i = 0; i < sizes.length - 1; i++) {
                 for (int j = 0; j < sizes[i + 1]; j++) {
                     for (int k = 0; k < sizes[i]; k++) {
@@ -74,6 +77,7 @@ public class Network {
         Map.Entry<double[], double[]> test1 = testData.getFirst();
         countActivations(test1.getKey());
 
+        displayDoubleTab(test1.getValue());
         logger.info(arrayToString(getOutput()));
     }
 
@@ -163,6 +167,11 @@ public class Network {
 
         for (int i = 1; i < sizes.length; i++) { // for every layer but 1st
             activations[i] = new double[sizes[i]]; // creates space for activations in layer
+
+            if (i == 0) {
+
+            }
+
             sums[i - 1] = new double[sizes[i]]; // holds sums for every activation
 
             for (int j = 0; j < sizes[i]; j++) { // for every neuron in layer
@@ -186,6 +195,26 @@ public class Network {
 
     private double sigmoidDerivative(double v) {
         return sigmoid(v) * (1 - sigmoid(v));
+    }
+
+    private void displayActivations() {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < sizes.length; i++) {
+            for (int j = 0; j < activations[i].length; j++) {
+                sb.append(activations[i][j]).append(" ");
+            }
+            sb.append("\n");
+        }
+        logger.info(sb.toString());
+    }
+
+    private void displayDoubleTab(double[] tab) {
+        StringBuilder sb = new StringBuilder();
+        for (double v : tab) {
+            sb.append(v).append(" ");
+        }
+        sb.append("\n");
+        logger.info(sb.toString());
     }
 }
 
