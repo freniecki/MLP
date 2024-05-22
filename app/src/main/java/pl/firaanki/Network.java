@@ -168,10 +168,6 @@ public class Network {
         for (int i = 1; i < sizes.length; i++) { // for every layer but 1st
             activations[i] = new double[sizes[i]]; // creates space for activations in layer
 
-            if (i == 0) {
-
-            }
-
             sums[i - 1] = new double[sizes[i]]; // holds sums for every activation
 
             for (int j = 0; j < sizes[i]; j++) { // for every neuron in layer
@@ -201,7 +197,8 @@ public class Network {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < sizes.length; i++) {
             for (int j = 0; j < activations[i].length; j++) {
-                sb.append(activations[i][j]).append(" ");
+                String formatted = String.format("%.2f",activations[i][j]);
+                sb.append(formatted).append(" ");
             }
             sb.append("\n");
         }
