@@ -5,7 +5,6 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.*;
 import java.util.logging.Logger;
 
@@ -39,7 +38,35 @@ public class FileHandler {
         String longLine = sb.toString();
         List<String> lines = List.of(longLine.split("\n"));
 
-        return format(lines);
+        return scale(format(lines));
+    }
+
+    private Map<double[],double[]> scale(Map<double[],double[]> format) {
+        Map<double[],double[]> scaled = new HashMap<>();
+        double[] max = new double[]{0,0,0,0};
+        double[] min = new double[]{Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE};
+        for (Map.Entry<double[],double[]> entry : format.entrySet()) {
+            double[] current = entry.getKey();
+            for (int i=0;i<4;i++) {
+                double curr = current[i];
+                if (curr > max[i]) {
+                    max[i] = curr;
+                }
+                if (curr < min[i]) {
+                    min[i] = curr;
+                }
+            }
+        }
+
+        for (Map.Entry<double[],double[]> entry : format.entrySet()) {
+            double[] current = entry.getKey();
+            for (int i = 0; i < 4; i++) {
+                current[i] = (current[i] - min[i]) / (max[i] - min[i]);
+            }
+            scaled.put(current, entry.getValue());
+        }
+
+        return scaled;
     }
 
     private Map<double[], double[]> format(List<String> lines) {
