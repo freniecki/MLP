@@ -27,6 +27,7 @@ public class Network implements Serializable {
         int epochCount = trainData.size();
         for (int epoch = 0; epoch < epochCount; epoch++) {
             double error = 0;
+            Collections.shuffle(trainData);
             for (Map.Entry<double[], double[]> current : trainData) {
                 double[][][] gradient = countGradientDescent(current.getKey(), current.getValue());
 
@@ -39,10 +40,7 @@ public class Network implements Serializable {
                     }
                 }
             }
-
-            String info = "-----epoch " + epoch + " -----\n"
-                    + activationsToString()
-                    + "---error: " + String.format("%.3f", error) + " -----";
+            String info = "epoch: [" + (epoch + 1) + "] | error: [" + String.format("%.3f", error) + "]";
             logger.info(info);
         }
     }
@@ -93,12 +91,32 @@ public class Network implements Serializable {
     }
 
     public void testNetwork(List<Map.Entry<double[], double[]>> testData) {
+        int correct = 0;
         for (Map.Entry<double[], double[]> test : testData) {
             StringBuilder sb = new StringBuilder();
             countActivations(test.getKey());
             sb.append(arrayToString(getOutput())).append("\n").append(arrayToString(test.getValue())).append("\n");
             logger.info(sb.toString());
+            if (evaluate(getOutput(), test.getValue())) {
+                correct++;
+            }
         }
+        String stats = String.format("%.3f",  (correct / (double) testData.size()));
+        logger.info(stats);
+    }
+
+    private boolean evaluate(double[] output, double[] expected) {
+        int outputMax = 0;
+        int expectedMax = 0;
+        for (int i = 1; i < 3; i++) {
+            if (output[i] > output[i - 1]) {
+                outputMax = i;
+            }
+            if (expected[i] > expected[i - 1]) {
+                expectedMax = i;
+            }
+        }
+        return outputMax == expectedMax;
     }
 
     double[] getOutput() {
