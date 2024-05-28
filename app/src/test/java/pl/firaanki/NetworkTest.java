@@ -7,13 +7,14 @@ public class NetworkTest extends TestCase {
 
     public void testStartNetwork() {
 
-        Network network = new Network(new int[]{4,7,3}, -1, 1);
+        Network network = new Network(new int[]{4,9,7,3}, -1, 1);
         Map<double[], double[]> data = FileHandler.getFile("iris.data").read();
 
         ArrayList<Map.Entry<double[], double[]>> dataList = new ArrayList<>(data.entrySet());
         ArrayList<Map.Entry<double[], double[]>> trainData = new ArrayList<>();
         ArrayList<Map.Entry<double[], double[]>> testData = new ArrayList<>();
 
+        Collections.shuffle(dataList);
         int trainCount = 60;
 
         for (int i = 0; i < trainCount; i++) {
@@ -23,7 +24,8 @@ public class NetworkTest extends TestCase {
             testData.add(dataList.get(i));
         }
 
-        network.trainNetwork(trainData);
+        network.online(trainData);
+        //network.offline(trainData, 0.4);
         network.testNetwork(testData);
     }
 }

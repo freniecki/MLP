@@ -29,7 +29,7 @@ public class Arrays {
                 // set for 0's
                 bias[i][j] = 0.0;
                 // set random
-                // bias[i][j] = min + Math.random() * (max - min);
+                //bias[i][j] = min + Math.random() * (max - min);
             }
         }
 

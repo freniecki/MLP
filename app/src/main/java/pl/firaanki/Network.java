@@ -23,57 +23,19 @@ public class Network implements Serializable {
         activations = new double[sizes.length][];
     }
 
-//    public void startNetwork(int epochCount, int testCount, double learningRate, Map<double[], double[]> data) {
-//        int gradientSize = sizes.length - 1;
-//        double[][][] bigGradient = new double[gradientSize][][];
-//        double[][][] gradient;
-//
-//        // initialize the network
-//        for (int i = 0; i < gradientSize; i++) {
-//            bigGradient[i] = new double[sizes[i + 1]][];
-//            for (int j = 0; j < sizes[i + 1]; j++) {
-//                // create space for weights & bias
-//                bigGradient[i][j] = new double[sizes[i] + 1];
-//            }
-//        }
-//
-//        // sum of gradients in every epoch
-//        for (int epoch = 0; epoch < epochCount; epoch++) {
-//            Map.Entry<double[], double[]> current = trainData.get(epoch);
-//            gradient = countGradientDescent(current.getKey(), current.getValue());
-//            String info = "-----epoch " + epoch + " -----" + activationsToString();
-//            logger.info(info);
-//
-//            for (int i = 0; i < sizes.length - 1; i++) {
-//                for (int j = 0; j < sizes[i + 1]; j++) {
-//                    for (int k = 0; k < sizes[i]; k++) {
-//                        bigGradient[i][j][k] += gradient[i][j][k];
-//                    }
-//                }
-//            }
-//        }
-//
-//        // update the weights and biases by gradient
-//        update(epochCount, learningRate, gradientSize, bigGradient);
-//
-//        Map.Entry<double[], double[]> test1 = testData.getFirst();
-//        countActivations(test1.getKey());
-//
-//        logger.info(arrayToString(getOutput()));
-//    }
-
-    public void trainNetwork(List<Map.Entry<double[], double[]>> trainData) {
+    public void online(List<Map.Entry<double[], double[]>> trainData) {
         int epochCount = trainData.size();
         for (int epoch = 0; epoch < epochCount; epoch++) {
-            Map.Entry<double[], double[]> current = trainData.get(epoch);
-            double[][][] gradient = countGradientDescent(current.getKey(), current.getValue());
             double error = 0;
+            for (Map.Entry<double[], double[]> current : trainData) {
+                double[][][] gradient = countGradientDescent(current.getKey(), current.getValue());
 
-            for (int i = 0; i < sizes.length - 1; i++) {
-                for (int j = 0; j < sizes[i + 1]; j++) {
-                    for (int k = 0; k < sizes[i]; k++) {
-                        weights[i][j][k] -= gradient[i][j][k];
-                        error += gradient[i][j][k];
+                for (int i = 0; i < sizes.length - 1; i++) {
+                    for (int j = 0; j < sizes[i + 1]; j++) {
+                        for (int k = 0; k < sizes[i]; k++) {
+                            weights[i][j][k] -= gradient[i][j][k];
+                            error += gradient[i][j][k];
+                        }
                     }
                 }
             }
@@ -85,13 +47,37 @@ public class Network implements Serializable {
         }
     }
 
-    public void testNetwork(List<Map.Entry<double[], double[]>> testData) {
-        for (Map.Entry<double[], double[]> test : testData) {
-            StringBuilder sb = new StringBuilder();
-            countActivations(test.getKey());
-            sb.append(arrayToString(getOutput())).append("\n").append(arrayToString(test.getValue())).append("\n");
-            logger.info(sb.toString());
+    public void offline(List<Map.Entry<double[], double[]>> trainData, double learningRate) {
+        int epochCount = trainData.size();
+        int gradientSize = sizes.length - 1;
+        double[][][] bigGradient = new double[gradientSize][][];
+        double[][][] gradient;
+
+        // initialize the network
+        for (int i = 0; i < gradientSize; i++) {
+            bigGradient[i] = new double[sizes[i + 1]][];
+            for (int j = 0; j < sizes[i + 1]; j++) {
+                // create space for weights & bias
+                bigGradient[i][j] = new double[sizes[i] + 1];
+            }
         }
+
+        // sum of gradients in every epoch
+        for (int epoch = 0; epoch < epochCount; epoch++) {
+            Map.Entry<double[], double[]> current = trainData.get(epoch);
+            gradient = countGradientDescent(current.getKey(), current.getValue());
+
+            for (int i = 0; i < sizes.length - 1; i++) {
+                for (int j = 0; j < sizes[i + 1]; j++) {
+                    for (int k = 0; k < sizes[i]; k++) {
+                        bigGradient[i][j][k] += gradient[i][j][k];
+                    }
+                }
+            }
+        }
+
+        // update the weights and biases by gradient
+        update(epochCount, learningRate, gradientSize, bigGradient);
     }
 
     private void update(int epochCount, double learningRate, int gradientSize, double[][][] bigGradient) {
@@ -103,6 +89,15 @@ public class Network implements Serializable {
                 // set new bias
                 biases[i][j] = biases[i][j] - ((learningRate / epochCount) * bigGradient[i][j][sizes[i]]);
             }
+        }
+    }
+
+    public void testNetwork(List<Map.Entry<double[], double[]>> testData) {
+        for (Map.Entry<double[], double[]> test : testData) {
+            StringBuilder sb = new StringBuilder();
+            countActivations(test.getKey());
+            sb.append(arrayToString(getOutput())).append("\n").append(arrayToString(test.getValue())).append("\n");
+            logger.info(sb.toString());
         }
     }
 
