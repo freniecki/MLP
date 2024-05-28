@@ -36,7 +36,13 @@ public class FileHandler {
         }
 
         String longLine = sb.toString();
-        List<String> lines = List.of(longLine.split("\n"));
+        List<String> lines;
+        if (System.getProperty("os.name").contains("Windows")) {
+            lines = List.of(longLine.split("\r\n"));
+        }
+        else {
+            lines = List.of(longLine.split("\n"));
+        }
 
         return scale(format(lines));
     }
