@@ -1,17 +1,20 @@
 package pl.firaanki;
 
+import java.io.Serializable;
 import java.util.*;
 import java.util.logging.Logger;
 
-public class Network {
+public class Network implements Serializable {
 
     int[] sizes;
     double[][][] weights;
     double[][] biases;
     double[][] activations;
-    double[][] sums;
+    transient double[][] sums;
 
-    Logger logger = Logger.getLogger(getClass().getName());
+    transient Logger logger = Logger.getLogger(getClass().getName());
+
+    String raport;
 
     Network(int[] sizes, double min, double max) {
         this.sizes = sizes;
@@ -20,78 +23,92 @@ public class Network {
         activations = new double[sizes.length][];
     }
 
-    public void startNetwork(int epochCount, int testCount, double learningRate, Map<double[], double[]> data) {
-        int gradientSize = sizes.length - 1;
-        double[][][] bigGradient = new double[gradientSize][][];
-        double[][][] gradient;
+//    public void startNetwork(int epochCount, int testCount, double learningRate, Map<double[], double[]> data) {
+//        int gradientSize = sizes.length - 1;
+//        double[][][] bigGradient = new double[gradientSize][][];
+//        double[][][] gradient;
+//
+//        // initialize the network
+//        for (int i = 0; i < gradientSize; i++) {
+//            bigGradient[i] = new double[sizes[i + 1]][];
+//            for (int j = 0; j < sizes[i + 1]; j++) {
+//                // create space for weights & bias
+//                bigGradient[i][j] = new double[sizes[i] + 1];
+//            }
+//        }
+//
+//        // sum of gradients in every epoch
+//        for (int epoch = 0; epoch < epochCount; epoch++) {
+//            Map.Entry<double[], double[]> current = trainData.get(epoch);
+//            gradient = countGradientDescent(current.getKey(), current.getValue());
+//            String info = "-----epoch " + epoch + " -----" + activationsToString();
+//            logger.info(info);
+//
+//            for (int i = 0; i < sizes.length - 1; i++) {
+//                for (int j = 0; j < sizes[i + 1]; j++) {
+//                    for (int k = 0; k < sizes[i]; k++) {
+//                        bigGradient[i][j][k] += gradient[i][j][k];
+//                    }
+//                }
+//            }
+//        }
+//
+//        // update the weights and biases by gradient
+//        update(epochCount, learningRate, gradientSize, bigGradient);
+//
+//        Map.Entry<double[], double[]> test1 = testData.getFirst();
+//        countActivations(test1.getKey());
+//
+//        logger.info(arrayToString(getOutput()));
+//    }
 
-        // initialize the network
-        for (int i = 0; i < gradientSize; i++) {
-            bigGradient[i] = new double[sizes[i + 1]][];
-            for (int j = 0; j < sizes[i + 1]; j++) {
-                // create space for weights & bias
-                bigGradient[i][j] = new double[sizes[i] + 1];
-            }
-        }
-
-        ArrayList<Map.Entry<double[], double[]>> dataList = new ArrayList<>(data.entrySet());
-        ArrayList<Map.Entry<double[], double[]>> trainData = new ArrayList<>();
-        ArrayList<Map.Entry<double[], double[]>> testData = new ArrayList<>();
-
-        for (int i = 0; i < testCount; i++) {
-            trainData.add(dataList.get(i));
-        }
-        for (int i = testCount; i < 150; i++) {
-            testData.add(dataList.get(i));
-        }
-
-
-
-        // sum of gradients in every epoch
+    public void trainNetwork(List<Map.Entry<double[], double[]>> trainData) {
+        int epochCount = trainData.size();
         for (int epoch = 0; epoch < epochCount; epoch++) {
             Map.Entry<double[], double[]> current = trainData.get(epoch);
-            gradient = countGradientDescent(current.getKey(), current.getValue());
-            String info = "-----epoch " + epoch + " -----";
-            logger.info(info);
-            displayActivations();
+            double[][][] gradient = countGradientDescent(current.getKey(), current.getValue());
+            double error = 0;
+
             for (int i = 0; i < sizes.length - 1; i++) {
                 for (int j = 0; j < sizes[i + 1]; j++) {
                     for (int k = 0; k < sizes[i]; k++) {
-                        bigGradient[i][j][k] += gradient[i][j][k];
+                        weights[i][j][k] -= gradient[i][j][k];
+                        error += gradient[i][j][k];
                     }
                 }
             }
-        }
 
-        // update the weights and biases by gradient
+            String info = "-----epoch " + epoch + " -----\n"
+                    + activationsToString()
+                    + "---error: " + String.format("%.3f", error) + " -----";
+            logger.info(info);
+        }
+    }
+
+    public void testNetwork(List<Map.Entry<double[], double[]>> testData) {
+        for (Map.Entry<double[], double[]> test : testData) {
+            StringBuilder sb = new StringBuilder();
+            countActivations(test.getKey());
+            sb.append(arrayToString(getOutput())).append("\n").append(arrayToString(test.getValue())).append("\n");
+            logger.info(sb.toString());
+        }
+    }
+
+    private void update(int epochCount, double learningRate, int gradientSize, double[][][] bigGradient) {
         for (int i = 0; i < gradientSize; i++) { // for every layer
             for (int j = 0; j < sizes[i + 1]; j++) { // for every neuron
                 for (int k = 0; k < sizes[i]; k++) { // set new weights
-                    weights[i][j][k] = (weights[i][j][k] - (learningRate / epochCount)) * bigGradient[i][j][k];
+                    weights[i][j][k] = weights[i][j][k] - ((learningRate / epochCount) * bigGradient[i][j][k]);
                 }
                 // set new bias
-                biases[i][j] = (biases[i][j] - (learningRate / epochCount)) * bigGradient[i][j][sizes[i]];
+                biases[i][j] = biases[i][j] - ((learningRate / epochCount) * bigGradient[i][j][sizes[i]]);
             }
         }
-
-        Map.Entry<double[], double[]> test1 = testData.getFirst();
-        countActivations(test1.getKey());
-
-        displayDoubleTab(test1.getValue());
-        logger.info(arrayToString(getOutput()));
     }
 
     double[] getOutput() {
         int outputIndex = activations.length - 1;
         return activations[outputIndex];
-    }
-
-    String arrayToString(double[] tab) {
-        StringBuilder sb = new StringBuilder();
-        for (double d : tab) {
-            sb.append(d + " ");
-        }
-        return sb.toString();
     }
 
     /**
@@ -102,17 +119,19 @@ public class Network {
      */
     private double[][][] countGradientDescent(double[] input, double[] output) {
         countActivations(input);
-        double[][][] gradient = new double[sizes.length - 1][][];
-        double[] deltas = new double[sizes[sizes.length - 1]]; // błąd dla ostatniej warstwy
+        int gradientSize = sizes.length - 1; // 1 less than activations
 
-        // ---------------------------------
-        // Obliczanie gradientu dla warstwy wyjściowej
+        double[][][] gradient = new double[gradientSize][][];
+        double[] deltas = new double[sizes[sizes.length - 1]]; // error for last layer
 
-        int lastLayerIndex = sizes.length - 2;
-        gradient[lastLayerIndex] = new double[sizes[lastLayerIndex + 1]][];
+        // ------------------gradient for output layers---------------
 
-        for (int i = 0; i < sizes[lastLayerIndex + 1]; i++) { // dla każdego neuronu w ostatniej warstwie
-            gradient[lastLayerIndex][i] = new double[sizes[lastLayerIndex] + 1]; // +1 dla biasu
+        int lastLayerIndex = gradientSize - 1;
+        gradient[lastLayerIndex] = new double[sizes[gradientSize]][];
+
+        for (int i = 0; i < sizes[lastLayerIndex + 1]; i++) { // for every node in last layer
+            int wbSize = sizes[lastLayerIndex] + 1; // +1 for bias
+            gradient[lastLayerIndex][i] = new double[wbSize];
 
             double sum = sums[lastLayerIndex][i];
             double delta = (activations[lastLayerIndex + 1][i] - output[i]) * sigmoidDerivative(sum);
@@ -125,8 +144,7 @@ public class Network {
             gradient[lastLayerIndex][i][sizes[lastLayerIndex]] = delta; // bias
         }
 
-        // ---------------------------------
-        // Obliczanie gradientu dla warstw ukrytych
+        // ---------------gradient for hidden layers------------------
 
         for (int i = lastLayerIndex - 1; i >= 0; i--) {
             int neurons = sizes[i + 1];
@@ -186,32 +204,31 @@ public class Network {
     }
 
     private double sigmoid(double v) {
-        return 1.0 / (1.0 - Math.exp(-v));
+        return 1.0 / (1.0 + Math.exp(-v));
     }
 
     private double sigmoidDerivative(double v) {
         return sigmoid(v) * (1 - sigmoid(v));
     }
 
-    private void displayActivations() {
+    String activationsToString() {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < sizes.length; i++) {
             for (int j = 0; j < activations[i].length; j++) {
-                String formatted = String.format("%.2f",activations[i][j]);
+                String formatted = String.format("%.2f", activations[i][j]);
                 sb.append(formatted).append(" ");
             }
             sb.append("\n");
         }
-        logger.info(sb.toString());
+        return sb.toString();
     }
 
-    private void displayDoubleTab(double[] tab) {
+    String arrayToString(double[] tab) {
         StringBuilder sb = new StringBuilder();
-        for (double v : tab) {
-            sb.append(v).append(" ");
+        for (double d : tab) {
+            sb.append(d).append(" ");
         }
-        sb.append("\n");
-        logger.info(sb.toString());
+        return sb.toString();
     }
 }
 
