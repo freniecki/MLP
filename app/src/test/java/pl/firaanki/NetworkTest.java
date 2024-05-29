@@ -15,7 +15,6 @@ public class NetworkTest extends TestCase {
         ArrayList<Map.Entry<double[], double[]>> trainData = new ArrayList<>();
         ArrayList<Map.Entry<double[], double[]>> testData = new ArrayList<>();
 
-        Collections.shuffle(dataList);
         int trainCount = 60;
 
         for (int i = 0; i < trainCount; i++) {
@@ -26,7 +25,9 @@ public class NetworkTest extends TestCase {
         }
 
         network.online(trainData);
+        System.out.println(network.getTrainStats());
         network.testNetwork(testData);
+        System.out.println(network.getTestStats());
     }
 
     public void testAutoencoder() {
@@ -39,7 +40,6 @@ public class NetworkTest extends TestCase {
 
         Network network = new Network(new int[]{4, 2, 4}, 0, 1);
         network.offline(patterns, 0.9);
-
 
     }
 }

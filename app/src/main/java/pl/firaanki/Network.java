@@ -14,10 +14,12 @@ public class Network implements Serializable {
 
     transient Logger logger = Logger.getLogger(getClass().getName());
 
-    String raport;
+    String trainStats;
+    String testStats;
 
     Network(int[] sizes, double min, double max) {
         this.sizes = sizes;
+        addTrainStats("layers:", arrayToString(sizes));
         weights = Arrays.getWeights(sizes, min, max);
         biases = Arrays.getBias(sizes, min, max);
         activations = new double[sizes.length][];
@@ -40,8 +42,8 @@ public class Network implements Serializable {
                     }
                 }
             }
-            String info = "epoch: [" + (epoch + 1) + "] | error: [" + String.format("%.3f", error) + "]";
-            logger.info(info);
+            addTrainStats("training epoch: [" + (epoch + 1) + "]",
+                    "|-> error: " + String.format("%.3f", error));
         }
     }
 
@@ -90,20 +92,77 @@ public class Network implements Serializable {
         }
     }
 
+    private double countError(Map.Entry<double[], double[]> current) {
+        double[][][] gradient = countGradientDescent(current.getKey(), current.getValue());
+        double error = 0.0;
+        StringBuilder sb = new StringBuilder();
+
+        for (int i = 0; i < sizes.length - 1; i++) {
+            for (int j = 0; j < sizes[i + 1]; j++) {
+                for (int k = 0; k < sizes[i]; k++) {
+                    error += gradient[i][j][k];
+                }
+                if (i == sizes.length - 2) {
+                    sb.append(String.format("%.2f", error)).append(" ");
+                }
+            }
+            if (i == sizes.length - 2) {
+                addTestStats("last layer errors: " + sb);
+            }
+        }
+        return error;
+    }
+
     public void testNetwork(List<Map.Entry<double[], double[]>> testData) {
         int correct = 0;
+        int count = 1;
         for (Map.Entry<double[], double[]> test : testData) {
-            StringBuilder sb = new StringBuilder();
-            countActivations(test.getKey());
-            sb.append(arrayToString(getOutput())).append("\n").append(arrayToString(test.getValue())).append("\n");
-            logger.info(sb.toString());
+            statsForTest(test, count);
+
             if (evaluate(getOutput(), test.getValue())) {
                 correct++;
             }
+            count++;
         }
+
         String stats = String.format("%.3f",  (correct / (double) testData.size()));
-        logger.info(stats);
+        addTestStats("test efficiency: " + stats);
     }
+
+    private void statsForTest(Map.Entry<double[], double[]> test, int count) {
+        addTestStats("test [" + count + "]:");
+        addTestStats("input: " + arrayToString(test.getKey()));
+
+        addTestStats("error: " + countError(test));
+        addTestStats("expected output: " + arrayToString(test.getValue()));
+
+        //addTestStats("output values: " + arrayToString(getOutput()));
+        for (int i = weights.length - 1; i >= 0; i--) {
+            addTestStats("layer activations");
+            addTestStats(arrayToString(getActivations(i + 1)));
+            addTestStats("layer weights: ");
+            for (int j = 0; j < weights[i].length; j++) {
+                addTestStats(arrayToString(weights[i][j]));
+            }
+        }
+
+        addTestStats("-------------------------------");
+    }
+
+    private double[] getActivations(int i) {
+        return activations[i];
+    }
+
+    /*
+    wzorca wejściowego,
+    popełnionego przez sieć błędu dla całego wzorca,
+    pożądanego wzorca odpowiedzi,
+    błędów popełnionych na poszczególnych wyjściach sieci,
+    wartości wyjściowych neuronów wyjściowych,
+    wag neuronów wyjściowych,
+    wartości wyjściowych neuronów ukrytych,
+    wag neuronów ukrytych (w kolejności warstw od dalszych względem wejść sieci do bliższych)
+     */
 
     private boolean evaluate(double[] output, double[] expected) {
         int outputMax = 0;
@@ -239,9 +298,33 @@ public class Network implements Serializable {
     String arrayToString(double[] tab) {
         StringBuilder sb = new StringBuilder();
         for (double d : tab) {
-            sb.append(d).append(" ");
+            sb.append(String.format("%.2f",d)).append(" ");
         }
         return sb.toString();
+    }
+
+    String arrayToString(int[] tab) {
+        StringBuilder sb = new StringBuilder();
+        for (int i : tab) {
+            sb.append(i).append(" ");
+        }
+        return sb.toString();
+    }
+
+    private void addTrainStats(String line1, String line2) {
+        trainStats += line1 + "\n" + line2 + "\n";
+    }
+
+    private void addTestStats(String line) {
+        testStats += line + "\n";
+    }
+
+    public String getTrainStats() {
+        return trainStats;
+    }
+
+    public String getTestStats() {
+        return testStats;
     }
 }
 
