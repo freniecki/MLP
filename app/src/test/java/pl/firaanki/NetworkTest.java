@@ -8,7 +8,7 @@ public class NetworkTest extends TestCase {
 
     public void testStartNetwork() {
 
-        Network network = new Network(new int[]{4, 9, 7, 3}, -1, 1);
+        Network network = new Network(new int[]{4, 9, 7, 3});
         Map<double[], double[]> data = FileHandler.getFile("iris.data").read();
 
         ArrayList<Map.Entry<double[], double[]>> dataList = new ArrayList<>(data.entrySet());
@@ -24,10 +24,13 @@ public class NetworkTest extends TestCase {
             testData.add(dataList.get(i));
         }
 
-        network.online(trainData);
+        network.online(trainData, 20, 1, 0);
         System.out.println(network.getTrainStats());
+        FileHandler.getFile("train.txt").write(network.getTrainStats());
+
         network.testNetwork(testData);
         System.out.println(network.getTestStats());
+        FileHandler.getFile("test.txt").write(network.getTestStats());
     }
 
     public void testAutoencoder() {
@@ -38,7 +41,7 @@ public class NetworkTest extends TestCase {
         patternsMap.put(new double[]{0, 0, 0, 1}, new double[]{0, 0, 0, 1});
         ArrayList<Map.Entry<double[], double[]>> patterns = new ArrayList<>(patternsMap.entrySet());
 
-        Network network = new Network(new int[]{4, 2, 4}, 0, 1);
+        Network network = new Network(new int[]{4, 2, 4});
         network.offline(patterns, 0.9);
 
     }

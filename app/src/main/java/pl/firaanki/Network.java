@@ -2,115 +2,93 @@ package pl.firaanki;
 
 import java.io.Serializable;
 import java.util.*;
-import java.util.logging.Logger;
 
 public class Network implements Serializable {
 
+    /**
+     * Array defining layers' sizes in MLP.
+     * n - number of layers
+     */
     int[] sizes;
+    /**
+     * n - 1 size
+     */
     double[][][] weights;
+    /**
+     * n - 1 size
+     */
     double[][] biases;
     double[][] activations;
+
+    double[][][] velocityWeights;
+    double[][] velocityBiases;
     transient double[][] sums;
 
-    transient Logger logger = Logger.getLogger(getClass().getName());
+    static final int MIN = -1;
+    static final int MAX = 1;
 
-    String trainStats;
-    String testStats;
+    private transient String trainStats = "";
+    private transient String testStats = "";
 
-    Network(int[] sizes, double min, double max) {
+    boolean takeBias = false;
+    boolean doShuffle = true;
+
+    Network(int[] sizes) {
         this.sizes = sizes;
-        addTrainStats("layers:", arrayToString(sizes));
-        weights = Arrays.getWeights(sizes, min, max);
-        biases = Arrays.getBias(sizes, min, max);
+        writeTrainLine("Layers structure:");
+        writeTrainLine(arrayToString(sizes));
+        weights = Arrays.getWeights(sizes, MIN, MAX);
+        biases = Arrays.getBias(sizes, MIN, MAX);
         activations = new double[sizes.length][];
+
+        velocityWeights = new double[sizes.length - 1][][];
+        velocityBiases = new double[sizes.length - 1][];
+        for (int i = 0; i < sizes.length - 1; i++) {
+            velocityWeights[i] = new double[sizes[i + 1]][sizes[i]];
+            velocityBiases[i] = new double[sizes[i + 1]];
+        }
     }
 
-    public void online(List<Map.Entry<double[], double[]>> trainData) {
-        int epochCount = trainData.size();
-        for (int epoch = 0; epoch < epochCount; epoch++) {
+    void setBias() {
+        takeBias = true;
+    }
+    void turnOffShuffle() {
+        doShuffle = false;
+    }
+
+
+    public void online(List<Map.Entry<double[], double[]>> trainData, int epochs, double learningRate, double momentum) {
+        for (int epoch = 0; epoch < epochs; epoch++) {
             double error = 0;
-            Collections.shuffle(trainData);
+            if (doShuffle) {
+                Collections.shuffle(trainData);
+            }
+
             for (Map.Entry<double[], double[]> current : trainData) {
-                double[][][] gradient = countGradientDescent(current.getKey(), current.getValue());
+                countActivations(current.getKey());
+                double[][][] gradient = countGradientDescent(current.getValue());
 
                 for (int i = 0; i < sizes.length - 1; i++) {
                     for (int j = 0; j < sizes[i + 1]; j++) {
                         for (int k = 0; k < sizes[i]; k++) {
-                            weights[i][j][k] -= gradient[i][j][k];
+                            velocityWeights[i][j][k] = momentum * velocityWeights[i][j][k]
+                                    + learningRate * gradient[i][j][k];
+                            weights[i][j][k] -= velocityWeights[i][j][k];
                             error += gradient[i][j][k];
+                        }
+                        if (takeBias) {
+                            velocityBiases[i][j] = momentum * velocityBiases[i][j]
+                                    + learningRate * gradient[i][j][sizes[i]];
+                            biases[i][j] -= velocityBiases[i][j];
+                            error -= gradient[i][j][sizes[i]];
                         }
                     }
                 }
             }
-            addTrainStats("training epoch: [" + (epoch + 1) + "]",
-                    "|-> error: " + String.format("%.3f", error));
+
+            writeTrainLine("Training epoch no." + (epoch + 1));
+            writeTrainLine("|-> error: " + String.format("%.3f", error));
         }
-    }
-
-    public void offline(List<Map.Entry<double[], double[]>> trainData, double learningRate) {
-        int epochCount = trainData.size();
-        int gradientSize = sizes.length - 1;
-        double[][][] bigGradient = new double[gradientSize][][];
-        double[][][] gradient;
-
-        // initialize the network
-        for (int i = 0; i < gradientSize; i++) {
-            bigGradient[i] = new double[sizes[i + 1]][];
-            for (int j = 0; j < sizes[i + 1]; j++) {
-                // create space for weights & bias
-                bigGradient[i][j] = new double[sizes[i] + 1];
-            }
-        }
-
-        // sum of gradients in every epoch
-        for (int epoch = 0; epoch < epochCount; epoch++) {
-            Map.Entry<double[], double[]> current = trainData.get(epoch);
-            gradient = countGradientDescent(current.getKey(), current.getValue());
-
-            for (int i = 0; i < sizes.length - 1; i++) {
-                for (int j = 0; j < sizes[i + 1]; j++) {
-                    for (int k = 0; k < sizes[i]; k++) {
-                        bigGradient[i][j][k] += gradient[i][j][k];
-                    }
-                }
-            }
-        }
-
-        // update the weights and biases by gradient
-        update(epochCount, learningRate, gradientSize, bigGradient);
-    }
-
-    private void update(int epochCount, double learningRate, int gradientSize, double[][][] bigGradient) {
-        for (int i = 0; i < gradientSize; i++) { // for every layer
-            for (int j = 0; j < sizes[i + 1]; j++) { // for every neuron
-                for (int k = 0; k < sizes[i]; k++) { // set new weights
-                    weights[i][j][k] = weights[i][j][k] - ((learningRate / epochCount) * bigGradient[i][j][k]);
-                }
-                // set new bias
-                biases[i][j] = biases[i][j] - ((learningRate / epochCount) * bigGradient[i][j][sizes[i]]);
-            }
-        }
-    }
-
-    private double countError(Map.Entry<double[], double[]> current) {
-        double[][][] gradient = countGradientDescent(current.getKey(), current.getValue());
-        double error = 0.0;
-        StringBuilder sb = new StringBuilder();
-
-        for (int i = 0; i < sizes.length - 1; i++) {
-            for (int j = 0; j < sizes[i + 1]; j++) {
-                for (int k = 0; k < sizes[i]; k++) {
-                    error += gradient[i][j][k];
-                }
-                if (i == sizes.length - 2) {
-                    sb.append(String.format("%.2f", error)).append(" ");
-                }
-            }
-            if (i == sizes.length - 2) {
-                addTestStats("last layer errors: " + sb);
-            }
-        }
-        return error;
     }
 
     public void testNetwork(List<Map.Entry<double[], double[]>> testData) {
@@ -126,43 +104,30 @@ public class Network implements Serializable {
         }
 
         String stats = String.format("%.3f",  (correct / (double) testData.size()));
-        addTestStats("test efficiency: " + stats);
+        writeTestLine("test efficiency: " + stats);
     }
 
-    private void statsForTest(Map.Entry<double[], double[]> test, int count) {
-        addTestStats("test [" + count + "]:");
-        addTestStats("input: " + arrayToString(test.getKey()));
+    private double countError(Map.Entry<double[], double[]> current) {
+        countActivations(current.getKey());
+        double[][][] gradient = countGradientDescent(current.getValue());
+        double error = 0.0;
+        StringBuilder sb = new StringBuilder();
 
-        addTestStats("error: " + countError(test));
-        addTestStats("expected output: " + arrayToString(test.getValue()));
-
-        //addTestStats("output values: " + arrayToString(getOutput()));
-        for (int i = weights.length - 1; i >= 0; i--) {
-            addTestStats("layer activations");
-            addTestStats(arrayToString(getActivations(i + 1)));
-            addTestStats("layer weights: ");
-            for (int j = 0; j < weights[i].length; j++) {
-                addTestStats(arrayToString(weights[i][j]));
+        for (int i = 0; i < sizes.length - 1; i++) {
+            for (int j = 0; j < sizes[i + 1]; j++) {
+                for (int k = 0; k < sizes[i]; k++) {
+                    error += gradient[i][j][k];
+                }
+                if (i == sizes.length - 2) {
+                    sb.append(String.format("%.2f", error)).append(" ");
+                }
+            }
+            if (i == sizes.length - 2) {
+                writeTestLine("last layer errors: " + sb);
             }
         }
-
-        addTestStats("-------------------------------");
+        return error;
     }
-
-    private double[] getActivations(int i) {
-        return activations[i];
-    }
-
-    /*
-    wzorca wejściowego,
-    popełnionego przez sieć błędu dla całego wzorca,
-    pożądanego wzorca odpowiedzi,
-    błędów popełnionych na poszczególnych wyjściach sieci,
-    wartości wyjściowych neuronów wyjściowych,
-    wag neuronów wyjściowych,
-    wartości wyjściowych neuronów ukrytych,
-    wag neuronów ukrytych (w kolejności warstw od dalszych względem wejść sieci do bliższych)
-     */
 
     private boolean evaluate(double[] output, double[] expected) {
         int outputMax = 0;
@@ -178,19 +143,37 @@ public class Network implements Serializable {
         return outputMax == expectedMax;
     }
 
-    double[] getOutput() {
-        int outputIndex = activations.length - 1;
-        return activations[outputIndex];
+    /*--------------------------------------MLP operations--------------------------------------*/
+
+    private void countActivations(double[] input) {
+        sums = new double[sizes.length - 1][];
+
+        activations[0] = new double[sizes[0]];
+        System.arraycopy(input, 0, activations[0], 0, sizes[0]);
+
+        double sum = 0.0;
+
+        for (int i = 1; i < sizes.length; i++) { // for every layer but 1st
+            activations[i] = new double[sizes[i]]; // creates space for activations in layer
+
+            sums[i - 1] = new double[sizes[i]]; // holds sums for every activation
+
+            for (int j = 0; j < sizes[i]; j++) { // for every neuron in layer
+                for (int k = 0; k < sizes[i - 1]; k++) { // for all wages in neuron
+                    // activation of previous layer * wage for that neuron
+                    sum += activations[i - 1][k] * weights[i - 1][j][k];
+                }
+                // counts activation value for neuron
+                activations[i][j] = sigmoid(sum) + biases[i - 1][j];
+                // holds sum value for neuron
+                sums[i - 1][j] = sum;
+
+                sum = 0.0;
+            }
+        }
     }
 
-    /**
-     * Counts gradient for every wage & bias
-     * @param input Training input vector
-     * @param output Training expected output
-     * @return 3-dimensional gradient array for wages & biases
-     */
-    private double[][][] countGradientDescent(double[] input, double[] output) {
-        countActivations(input);
+    private double[][][] countGradientDescent(double[] output) {
         int gradientSize = sizes.length - 1; // 1 less than activations
 
         double[][][] gradient = new double[gradientSize][][];
@@ -201,7 +184,7 @@ public class Network implements Serializable {
         int lastLayerIndex = gradientSize - 1;
         gradient[lastLayerIndex] = new double[sizes[gradientSize]][];
 
-        for (int i = 0; i < sizes[lastLayerIndex + 1]; i++) { // for every node in last layer
+        for (int i = 0; i < sizes[lastLayerIndex + 1]; i++) { // for every neuron in last layer
             int wbSize = sizes[lastLayerIndex] + 1; // +1 for bias
             gradient[lastLayerIndex][i] = new double[wbSize];
 
@@ -247,33 +230,7 @@ public class Network implements Serializable {
         return gradient;
     }
 
-    private void countActivations(double[] input) {
-        sums = new double[sizes.length - 1][];
-
-        activations[0] = new double[sizes[0]];
-        System.arraycopy(input, 0, activations[0], 0, sizes[0]);
-
-        double sum = 0.0;
-
-        for (int i = 1; i < sizes.length; i++) { // for every layer but 1st
-            activations[i] = new double[sizes[i]]; // creates space for activations in layer
-
-            sums[i - 1] = new double[sizes[i]]; // holds sums for every activation
-
-            for (int j = 0; j < sizes[i]; j++) { // for every neuron in layer
-                for (int k = 0; k < sizes[i - 1]; k++) { // for all wages in neuron
-                    // activation of previous layer * wage for that neuron
-                    sum += activations[i - 1][k] * weights[i - 1][j][k];
-                }
-                // counts activation value for neuron
-                activations[i][j] = sigmoid(sum) + biases[i - 1][j];
-                // holds sum value for neuron
-                sums[i - 1][j] = sum;
-
-                sum = 0.0;
-            }
-        }
-    }
+    /*--------------------------------------Math operations--------------------------------------*/
 
     private double sigmoid(double v) {
         return 1.0 / (1.0 + Math.exp(-v));
@@ -283,18 +240,7 @@ public class Network implements Serializable {
         return sigmoid(v) * (1 - sigmoid(v));
     }
 
-    String activationsToString() {
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < sizes.length; i++) {
-            for (int j = 0; j < activations[i].length; j++) {
-                String formatted = String.format("%.2f", activations[i][j]);
-                sb.append(formatted).append(" ");
-            }
-            sb.append("\n");
-        }
-        return sb.toString();
-    }
-
+    /*--------------------------------------String operations--------------------------------------*/
     String arrayToString(double[] tab) {
         StringBuilder sb = new StringBuilder();
         for (double d : tab) {
@@ -311,12 +257,57 @@ public class Network implements Serializable {
         return sb.toString();
     }
 
-    private void addTrainStats(String line1, String line2) {
-        trainStats += line1 + "\n" + line2 + "\n";
+
+    /*--------------------------------------Statistics--------------------------------------*/
+    double[] getOutput() {
+        int outputIndex = activations.length - 1;
+        return activations[outputIndex];
     }
 
-    private void addTestStats(String line) {
+    private void statsForTest(Map.Entry<double[], double[]> test, int count) {
+        writeTestLine("TEST no. " + count + ":");
+        writeTestLine("input: " + arrayToString(test.getKey()));
+
+        writeTestLine("Global error: " + String.format("%.3f",  countError(test)));
+        writeTestLine("Expected output: " + arrayToString(test.getValue()));
+
+        // output layer
+        writeTestLine("Output layer activations: ");
+        int lastLayer = weights.length;
+        writeTestLine(arrayToString(activations[lastLayer]));
+        writeTestLine("Last layer weights & biases: ");
+        for (int j = 0; j < weights[lastLayer - 1].length; j++) {
+            writeTest(arrayToString(weights[lastLayer - 1][j]) + "| ");
+            writeTestLine(String.valueOf(biases[lastLayer - 1][j]));
+        }
+
+        writeTestLine("-------------------------------");
+
+        //hidden layers
+        for (int i = weights.length - 2; i >= 0; i--) {
+            writeTestLine("Hidden layer activations");
+            writeTestLine(arrayToString(activations[i + 1]));
+            writeTestLine("Hidden layer weights & biases: ");
+            for (int j = 0; j < weights[i].length; j++) {
+                writeTest(arrayToString(weights[i][j]) + "| ");
+                writeTestLine(String.valueOf(biases[i][j]));
+            }
+            writeTestLine("-------------------------------");
+        }
+
+        writeTestLine("=======================================");
+    }
+
+    private void writeTrainLine(String line) {
+        trainStats += line + "\n";
+    }
+
+    private void writeTestLine(String line) {
         testStats += line + "\n";
+    }
+
+    private void writeTest(String line) {
+        testStats += line;
     }
 
     public String getTrainStats() {
@@ -325,6 +316,54 @@ public class Network implements Serializable {
 
     public String getTestStats() {
         return testStats;
+    }
+
+    /*-------------------------------Offline learning------------------------------------*/
+
+    public void offline(List<Map.Entry<double[], double[]>> trainData, double learningRate) {
+        int epochCount = trainData.size();
+        int gradientSize = sizes.length - 1;
+        double[][][] bigGradient = new double[gradientSize][][];
+        double[][][] gradient;
+
+        // initialize the network
+        for (int i = 0; i < gradientSize; i++) {
+            bigGradient[i] = new double[sizes[i + 1]][];
+            for (int j = 0; j < sizes[i + 1]; j++) {
+                // create space for weights & bias
+                bigGradient[i][j] = new double[sizes[i] + 1];
+            }
+        }
+
+        // sum of gradients in every epoch
+        for (int epoch = 0; epoch < epochCount; epoch++) {
+            Map.Entry<double[], double[]> current = trainData.get(epoch);
+            countActivations(current.getKey());
+            gradient = countGradientDescent(current.getValue());
+
+            for (int i = 0; i < sizes.length - 1; i++) {
+                for (int j = 0; j < sizes[i + 1]; j++) {
+                    for (int k = 0; k < sizes[i]; k++) {
+                        bigGradient[i][j][k] += gradient[i][j][k];
+                    }
+                }
+            }
+        }
+
+        // update the weights and biases by gradient
+        update(epochCount, learningRate, gradientSize, bigGradient);
+    }
+
+    private void update(int epochCount, double learningRate, int gradientSize, double[][][] bigGradient) {
+        for (int i = 0; i < gradientSize; i++) { // for every layer
+            for (int j = 0; j < sizes[i + 1]; j++) { // for every neuron
+                for (int k = 0; k < sizes[i]; k++) { // set new weights
+                    weights[i][j][k] = weights[i][j][k] - ((learningRate / epochCount) * bigGradient[i][j][k]);
+                }
+                // set new bias
+                biases[i][j] = biases[i][j] - ((learningRate / epochCount) * bigGradient[i][j][sizes[i]]);
+            }
+        }
     }
 }
 
