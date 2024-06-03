@@ -49,21 +49,20 @@ public class FileHandler {
         List<String> lines;
         if (System.getProperty("os.name").contains("Windows")) {
             lines = List.of(longLine.split("\r\n"));
-        }
-        else {
+        } else {
             lines = List.of(longLine.split("\n"));
         }
 
         return scale(format(lines));
     }
 
-    private Map<double[],double[]> scale(Map<double[],double[]> format) {
-        Map<double[],double[]> scaled = new HashMap<>();
-        double[] max = new double[]{0,0,0,0};
+    private Map<double[], double[]> scale(Map<double[], double[]> format) {
+        Map<double[], double[]> scaled = new HashMap<>();
+        double[] max = new double[]{0, 0, 0, 0};
         double[] min = new double[]{Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE};
-        for (Map.Entry<double[],double[]> entry : format.entrySet()) {
+        for (Map.Entry<double[], double[]> entry : format.entrySet()) {
             double[] current = entry.getKey();
-            for (int i=0;i<4;i++) {
+            for (int i = 0; i < 4; i++) {
                 double curr = current[i];
                 if (curr > max[i]) {
                     max[i] = curr;
@@ -74,7 +73,7 @@ public class FileHandler {
             }
         }
 
-        for (Map.Entry<double[],double[]> entry : format.entrySet()) {
+        for (Map.Entry<double[], double[]> entry : format.entrySet()) {
             double[] current = entry.getKey();
             for (int i = 0; i < 4; i++) {
                 current[i] = (current[i] - min[i]) / (max[i] - min[i]);
