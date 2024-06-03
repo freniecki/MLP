@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.logging.Logger;
+import java.io.FileWriter;
 
 public class FileHandler {
 
@@ -20,6 +21,15 @@ public class FileHandler {
 
     public static FileHandler getFile(String fileName) {
         return new FileHandler(fileName);
+    }
+
+    public void write(String text) {
+        try (FileWriter writer = new FileWriter(fileName)) {
+            writer.write(text);
+            logger.info("Zapisano do pliku");
+        } catch (IOException e) {
+            logger.severe("Nie zapisano do pliku");
+        }
     }
 
     public Map<double[], double[]> read() {
