@@ -29,16 +29,20 @@ public class Network implements Serializable {
 
     private transient String trainStats = "";
     private transient String testStats = "";
+    private final int[][] stats = new int[3][2];
 
     boolean takeBias = false;
     boolean doShuffle = true;
+    boolean[] sizesStats;
 
     Network(int[] sizes) {
         this.sizes = sizes;
+        sizesStats = new boolean[sizes.length];
         writeTrainLine("Layers structure:");
         writeTrainLine(arrayToString(sizes));
-        weights = Arrays.getWeights(sizes, MIN, MAX);
-        biases = Arrays.getBias(sizes, MIN, MAX);
+
+        weights = ArrayLib.getWeights(sizes, MIN, MAX);
+        biases = ArrayLib.getBias(sizes, MIN, MAX);
         activations = new double[sizes.length][];
 
         velocityWeights = new double[sizes.length - 1][][];
@@ -55,95 +59,69 @@ public class Network implements Serializable {
     void turnOffShuffle() {
         doShuffle = false;
     }
+    void setSizesStats(boolean[] sizesStats) {
+        this.sizesStats = sizesStats;
+    }
+
+    /*--------------------------------------MLP operations--------------------------------------*/
+
+    // todo: check error and global error
+    // todo: run method
 
 
-    public void online(List<Map.Entry<double[], double[]>> trainData, int epochs, double learningRate, double momentum) {
+    public void onlineEpoch(List<Map.Entry<double[], double[]>> trainData, int epochs, double learningRate, double momentum) {
         for (int epoch = 0; epoch < epochs; epoch++) {
             double error = 0;
-            if (doShuffle) {
-                Collections.shuffle(trainData);
-            }
-
-            for (Map.Entry<double[], double[]> current : trainData) {
-                countActivations(current.getKey());
-                double[][][] gradient = countGradientDescent(current.getValue());
-
-                for (int i = 0; i < sizes.length - 1; i++) {
-                    for (int j = 0; j < sizes[i + 1]; j++) {
-                        for (int k = 0; k < sizes[i]; k++) {
-                            velocityWeights[i][j][k] = momentum * velocityWeights[i][j][k]
-                                    + learningRate * gradient[i][j][k];
-                            weights[i][j][k] -= velocityWeights[i][j][k];
-                            error += gradient[i][j][k];
-                        }
-                        if (takeBias) {
-                            velocityBiases[i][j] = momentum * velocityBiases[i][j]
-                                    + learningRate * gradient[i][j][sizes[i]];
-                            biases[i][j] -= velocityBiases[i][j];
-                            error -= gradient[i][j][sizes[i]];
-                        }
-                    }
-                }
-            }
+            error = doEpoch(trainData, learningRate, momentum, error);
 
             writeTrainLine("Training epoch no." + (epoch + 1));
             writeTrainLine("|-> error: " + String.format("%.3f", error));
         }
     }
 
-    public void testNetwork(List<Map.Entry<double[], double[]>> testData) {
-        int correct = 0;
-        int count = 1;
-        for (Map.Entry<double[], double[]> test : testData) {
-            statsForTest(test, count);
+    public void onlinePrecise(List<Map.Entry<double[], double[]>> trainData, double precision,
+                              double learningRate, double momentum) {
+        double error = Double.MAX_VALUE;
+        int epoch = 0;
 
-            if (evaluate(getOutput(), test.getValue())) {
-                correct++;
-            }
-            count++;
+        while (error > precision || epoch > 50) {
+            error = doEpoch(trainData, learningRate, momentum, error);
+
+            writeTrainLine("Training epoch no." + (++epoch));
+            writeTrainLine("|-> error: " + String.format("%.3f", error));
         }
-
-        String stats = String.format("%.3f",  (correct / (double) testData.size()));
-        writeTestLine("test efficiency: " + stats);
     }
 
-    private double countError(Map.Entry<double[], double[]> current) {
-        countActivations(current.getKey());
-        double[][][] gradient = countGradientDescent(current.getValue());
-        double error = 0.0;
-        StringBuilder sb = new StringBuilder();
+    private double doEpoch(List<Map.Entry<double[], double[]>> trainData, double learningRate, double momentum, double error) {
+        if (doShuffle) {
+            Collections.shuffle(trainData);
+        }
+        for (Map.Entry<double[], double[]> current : trainData) {
+            countActivations(current.getKey());
+            double[][][] gradient = countGradientDescent(current.getValue());
 
-        for (int i = 0; i < sizes.length - 1; i++) {
-            for (int j = 0; j < sizes[i + 1]; j++) {
-                for (int k = 0; k < sizes[i]; k++) {
-                    error += gradient[i][j][k];
-                }
-                if (i == sizes.length - 2) {
-                    sb.append(String.format("%.2f", error)).append(" ");
-                }
-            }
-            if (i == sizes.length - 2) {
-                writeTestLine("last layer errors: " + sb);
-            }
+            error = updateOnline(learningRate, momentum, gradient, error);
         }
         return error;
     }
 
-    private boolean evaluate(double[] output, double[] expected) {
-        int outputMax = 0;
-        int expectedMax = 0;
-        for (int i = 1; i < 3; i++) {
-            if (output[i] > output[i - 1]) {
-                outputMax = i;
-            }
-            if (expected[i] > expected[i - 1]) {
-                expectedMax = i;
+    private double updateOnline(double learningRate, double momentum, double[][][] gradient, double error) {
+        for (int i = 0; i < sizes.length - 1; i++) {
+            for (int j = 0; j < sizes[i + 1]; j++) {
+                for (int k = 0; k < sizes[i]; k++) {
+                    velocityWeights[i][j][k] = momentum * velocityWeights[i][j][k] + learningRate * gradient[i][j][k];
+                    weights[i][j][k] -= velocityWeights[i][j][k];
+                    error += gradient[i][j][k];
+                }
+                if (takeBias) {
+                    velocityBiases[i][j] = momentum * velocityBiases[i][j] + learningRate * gradient[i][j][sizes[i]];
+                    biases[i][j] -= velocityBiases[i][j];
+                    error += gradient[i][j][sizes[i]];
+                }
             }
         }
-        return outputMax == expectedMax;
+        return error;
     }
-
-    /*--------------------------------------MLP operations--------------------------------------*/
 
     private void countActivations(double[] input) {
         sums = new double[sizes.length - 1][];
@@ -230,6 +208,63 @@ public class Network implements Serializable {
         return gradient;
     }
 
+    /*--------------------------------------Test operations--------------------------------------*/
+
+    public void testNetwork(List<Map.Entry<double[], double[]>> testData) {
+        int correct = 0;
+        int count = 1;
+        for (Map.Entry<double[], double[]> test : testData) {
+            statsForTest(test, count);
+
+            if (evaluate(getOutput(), test.getValue())) {
+                correct++;
+                addStats(test.getValue(), 1);
+            } else {
+                addStats(test.getValue(), 0);
+            }
+            count++;
+        }
+
+        String efficiency = String.format("%.3f",  (correct / (double) testData.size()));
+        writeTestLine("test efficiency: " + efficiency);
+    }
+
+    private double countError(Map.Entry<double[], double[]> current) {
+        countActivations(current.getKey());
+        double[][][] gradient = countGradientDescent(current.getValue());
+        double error = 0.0;
+        StringBuilder sb = new StringBuilder();
+
+        for (int i = 0; i < sizes.length - 1; i++) {
+            for (int j = 0; j < sizes[i + 1]; j++) {
+                for (int k = 0; k < sizes[i]; k++) {
+                    error += gradient[i][j][k];
+                }
+                if (i == sizes.length - 2) {
+                    sb.append(String.format("%.2f", error)).append(" ");
+                }
+            }
+            if (i == sizes.length - 2) {
+                writeTestLine("last layer errors: " + sb);
+            }
+        }
+        return error;
+    }
+
+    private boolean evaluate(double[] output, double[] expected) {
+        int outputMax = 0;
+        int expectedMax = 0;
+        for (int i = 1; i < 3; i++) {
+            if (output[i] > output[i - 1]) {
+                outputMax = i;
+            }
+            if (expected[i] > expected[i - 1]) {
+                expectedMax = i;
+            }
+        }
+        return outputMax == expectedMax;
+    }
+
     /*--------------------------------------Math operations--------------------------------------*/
 
     private double sigmoid(double v) {
@@ -256,7 +291,6 @@ public class Network implements Serializable {
         }
         return sb.toString();
     }
-
 
     /*--------------------------------------Statistics--------------------------------------*/
     double[] getOutput() {
@@ -285,17 +319,40 @@ public class Network implements Serializable {
 
         //hidden layers
         for (int i = weights.length - 2; i >= 0; i--) {
-            writeTestLine("Hidden layer activations");
-            writeTestLine(arrayToString(activations[i + 1]));
-            writeTestLine("Hidden layer weights & biases: ");
-            for (int j = 0; j < weights[i].length; j++) {
-                writeTest(arrayToString(weights[i][j]) + "| ");
-                writeTestLine(String.valueOf(biases[i][j]));
+            if (sizesStats[i + 1]) {
+                writeTestLine("Hidden layer activations");
+                writeTestLine(arrayToString(activations[i + 1]));
+                writeTestLine("Hidden layer weights & biases: ");
+                for (int j = 0; j < weights[i].length; j++) {
+                    writeTest(arrayToString(weights[i][j]) + "| ");
+                    writeTestLine(String.valueOf(biases[i][j]));
+                }
+                writeTestLine("-------------------------------");
             }
-            writeTestLine("-------------------------------");
         }
 
         writeTestLine("=======================================");
+    }
+
+    private void addStats(double[] value, int isCorrect) {
+        double[] setosa = new double[]{1.0, 0.0, 0.0};
+        double[] versicolor = new double[]{0.0, 1.0, 0.0};
+        double[] virginica = new double[]{0.0, 0.0, 1.0};
+
+        if (Arrays.equals(value, setosa)) {
+            stats[0][0]++;
+            stats[0][1] += isCorrect;
+        } else if (Arrays.equals(value, versicolor)) {
+            stats[1][0]++;
+            stats[1][1] += isCorrect;
+        } else if (Arrays.equals(value, virginica)) {
+            stats[2][0]++;
+            stats[2][1] += isCorrect;
+        }
+    }
+
+    public int[][] getStats() {
+        return stats;
     }
 
     private void writeTrainLine(String line) {
