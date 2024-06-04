@@ -214,13 +214,18 @@ public class Network implements Serializable {
         int correct = 0;
         int count = 1;
         for (Map.Entry<double[], double[]> test : testData) {
+            countActivations(test.getKey());
             statsForTest(test, count);
 
-            if (evaluate(getOutput(), test.getValue())) {
+            double[] scaledOutput = getScaledOutput();
+            double[] realOutput = test.getValue();
+
+            if (Arrays.equals(scaledOutput, realOutput)) {
                 correct++;
-                addStats(test.getValue(), 1);
+                addStats(realOutput, 1,0); //
             } else {
-                addStats(test.getValue(), 0);
+                addStats(realOutput, 0, 0); //
+                addStats(scaledOutput, 0, 1); //
             }
             count++;
         }
@@ -228,9 +233,29 @@ public class Network implements Serializable {
         String efficiency = String.format("%.3f",  (correct / (double) testData.size()));
         writeTestLine("test efficiency: " + efficiency);
     }
+    // trueV = 1 -> true positive
+    // falseV = 1 -> false positive
+    // trueV = 0 -> true negative
+    // falseV = 0 -> false negative
+    private void addStats(double[] value, int trueV, int falseV) {
+        double[] setosa = new double[]{1.0, 0.0, 0.0};
+        double[] versicolor = new double[]{0.0, 1.0, 0.0};
+        double[] virginica = new double[]{0.0, 0.0, 1.0};
+
+        if (Arrays.equals(value, setosa)) {
+            stats[0][0] += trueV; // true positive
+            stats[0][1]++; // all presence
+            stats[0][2] += falseV; // false positive
+        } else if (Arrays.equals(value, versicolor)) {
+            stats[1][0] += trueV;
+            stats[1][1]++;
+        } else if (Arrays.equals(value, virginica)) {
+            stats[2][0] += trueV;
+            stats[2][1]++;
+        }
+    }
 
     private double countError(Map.Entry<double[], double[]> current) {
-        countActivations(current.getKey());
         double[][][] gradient = countGradientDescent(current.getValue());
         double error = 0.0;
         StringBuilder sb = new StringBuilder();
@@ -251,20 +276,6 @@ public class Network implements Serializable {
         return error;
     }
 
-    private boolean evaluate(double[] output, double[] expected) {
-        int outputMax = 0;
-        int expectedMax = 0;
-        for (int i = 1; i < 3; i++) {
-            if (output[i] > output[i - 1]) {
-                outputMax = i;
-            }
-            if (expected[i] > expected[i - 1]) {
-                expectedMax = i;
-            }
-        }
-        return outputMax == expectedMax;
-    }
-
     /*--------------------------------------Math operations--------------------------------------*/
 
     private double sigmoid(double v) {
@@ -274,8 +285,8 @@ public class Network implements Serializable {
     private double sigmoidDerivative(double v) {
         return sigmoid(v) * (1 - sigmoid(v));
     }
-
     /*--------------------------------------String operations--------------------------------------*/
+
     String arrayToString(double[] tab) {
         StringBuilder sb = new StringBuilder();
         for (double d : tab) {
@@ -291,11 +302,23 @@ public class Network implements Serializable {
         }
         return sb.toString();
     }
-
     /*--------------------------------------Statistics--------------------------------------*/
-    double[] getOutput() {
+
+    double[] getScaledOutput() { // scale
         int outputIndex = activations.length - 1;
-        return activations[outputIndex];
+        double[] realOutput = activations[outputIndex];
+        int outputSize = activations[outputIndex].length;
+
+        int outputMax = 0;
+        for (int i = 1; i < outputSize; i++) {
+            if (realOutput[i] > realOutput[i - 1]) {
+                outputMax = i;
+            }
+        }
+        double[] scaledOutput = new double[outputSize];
+        scaledOutput[outputMax] = 1;
+
+        return scaledOutput;
     }
 
     private void statsForTest(Map.Entry<double[], double[]> test, int count) {
@@ -332,23 +355,6 @@ public class Network implements Serializable {
         }
 
         writeTestLine("=======================================");
-    }
-
-    private void addStats(double[] value, int isCorrect) {
-        double[] setosa = new double[]{1.0, 0.0, 0.0};
-        double[] versicolor = new double[]{0.0, 1.0, 0.0};
-        double[] virginica = new double[]{0.0, 0.0, 1.0};
-
-        if (Arrays.equals(value, setosa)) {
-            stats[0][0]++;
-            stats[0][1] += isCorrect;
-        } else if (Arrays.equals(value, versicolor)) {
-            stats[1][0]++;
-            stats[1][1] += isCorrect;
-        } else if (Arrays.equals(value, virginica)) {
-            stats[2][0]++;
-            stats[2][1] += isCorrect;
-        }
     }
 
     public int[][] getStats() {

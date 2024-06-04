@@ -7,8 +7,8 @@ public class Statistics {
         for (int i = 0; i < 3; i++) {
             System.arraycopy(stats[i], 0, this.stats[i], 0, 2);
         }
-        stats[3][0] = stats[0][0] + stats[1][0] + stats[2][0];
-        stats[3][1] = stats[0][1] + stats[1][1] + stats[2][1];
+        this.stats[3][0] = stats[0][0] + stats[1][0] + stats[2][0];
+        this.stats[3][1] = stats[0][1] + stats[1][1] + stats[2][1];
     }
 
     String getClassification() {

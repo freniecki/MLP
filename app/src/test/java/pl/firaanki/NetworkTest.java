@@ -25,15 +25,16 @@ public class NetworkTest extends TestCase {
         }
 
         network.onlineEpoch(trainData, 20, 1, 0);
-        System.out.println(network.getTrainStats());
-        FileHandler.getFile("train.txt").write(network.getTrainStats());
+        //System.out.println(network.getTrainStats());
+        //FileHandler.getFile("train.txt").write(network.getTrainStats());
 
         network.testNetwork(testData);
-        System.out.println(network.getTestStats());
-        FileHandler.getFile("test.txt").write(network.getTestStats());
+        //System.out.println(network.getTestStats());
+        //FileHandler.getFile("test.txt").write(network.getTestStats());
 
-        System.out.println(network.getStats());
-
+        int[][] stats = network.getStats();
+        Statistics statistics = new Statistics(stats);
+        System.out.println(statistics.getAllStats());
     }
 
     private ArrayList<Map.Entry<double[], double[]>> getPatterns() {
