@@ -2,6 +2,7 @@ package pl.firaanki;
 
 import junit.framework.TestCase;
 
+import javax.swing.*;
 import java.util.*;
 
 public class NetworkTest extends TestCase {
@@ -37,7 +38,7 @@ public class NetworkTest extends TestCase {
         System.out.println(statistics.getAllStats());
     }
 
-    private ArrayList<Map.Entry<double[], double[]>> getPatterns() {
+    private static ArrayList<Map.Entry<double[], double[]>> getPatterns() {
         Map<double[], double[]> patternsMap = new HashMap<>();
         patternsMap.put(new double[]{1, 0, 0, 0}, new double[]{1, 0, 0, 0});
         patternsMap.put(new double[]{0, 1, 0, 0}, new double[]{0, 1, 0, 0});
@@ -46,16 +47,24 @@ public class NetworkTest extends TestCase {
         return new ArrayList<>(patternsMap.entrySet());
     }
 
-    public void testAutoencoder() {
+    public static void main(String[] args) {
         ArrayList<Map.Entry<double[], double[]>> patterns = getPatterns();
 
-        Network network = new Network(new int[]{4, 2, 4});
-        network.setBias();
+        Network network = new Network(new int[]{4, 3, 4});
+        //network.setBias();
         network.onlineEpoch(patterns, 1000, 0.6, 0.0);
         System.out.println(network.getTrainStats());
         network.testNetwork(patterns);
         System.out.println(network.getTestStats());
 
+
+        SwingUtilities.invokeLater(() -> {
+            Plot example = new Plot("Error Plot Example", network.getErrors());
+            example.setSize(800, 400);
+            example.setLocationRelativeTo(null);
+            example.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            example.setVisible(true);
+        });
     }
 
     public void research(double learningRate, double momentum) {

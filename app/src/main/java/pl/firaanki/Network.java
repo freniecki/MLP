@@ -29,6 +29,7 @@ public class Network implements Serializable {
     private transient String trainStats = "";
     private transient String testStats = "";
     private final int[][] outputStats;
+    private double[] errors;
 
     boolean takeBias = false;
     boolean doShuffle = true;
@@ -67,12 +68,14 @@ public class Network implements Serializable {
 
     public void onlineEpoch(List<Map.Entry<double[], double[]>> trainData, int epochs,
                             double learningRate, double momentum) {
+        errors = new double[epochs];
+        writeTrainLine("--------------TRAINING--------------");
         for (int epoch = 0; epoch < epochs; epoch++) {
             double error = 0;
             error = doEpoch(trainData, learningRate, momentum, error);
+            errors[epoch] = error;
 
-            writeTrainLine("Training epoch no." + (epoch + 1));
-            writeTrainLine("|-> error: " + String.format("%.3f", error));
+            writeTrainLine("epoch no." + (epoch + 1) + " | error: " + String.format("%.3f", error));
         }
     }
 
@@ -213,6 +216,8 @@ public class Network implements Serializable {
     public void testNetwork(List<Map.Entry<double[], double[]>> testData) {
         int correct = 0;
         int count = 1;
+        writeTestLine("--------------TESTING--------------");
+
         for (Map.Entry<double[], double[]> test : testData) {
             countActivations(test.getKey());
             statsForTest(test, count);
@@ -323,6 +328,10 @@ public class Network implements Serializable {
         scaledOutput[outputMax] = 1;
 
         return scaledOutput;
+    }
+
+    public double[] getErrors() {
+        return errors;
     }
 
     private void statsForTest(Map.Entry<double[], double[]> test, int count) {
