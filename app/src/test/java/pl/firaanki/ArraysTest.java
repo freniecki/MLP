@@ -16,15 +16,4 @@ public class ArraysTest extends TestCase {
             }
         }
     }
-
-    public void testGetBiases() {
-        double[][] biases = ArrayLib.getBias(new int[]{4,7,3}, -1, 1);
-        for (double[] db : biases) {
-            System.out.println("---layer---");
-            for (double dbs : db) {
-                System.out.print(dbs + " ");
-            }
-            System.out.println();
-        }
-    }
 }

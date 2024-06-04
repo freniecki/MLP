@@ -17,7 +17,6 @@ public class Network implements Serializable {
     /**
      * n - 1 size
      */
-    double[][] biases;
     double[][] activations;
 
     double[][][] velocityWeights;
@@ -29,7 +28,7 @@ public class Network implements Serializable {
 
     private transient String trainStats = "";
     private transient String testStats = "";
-    private final int[][] stats = new int[3][2];
+    private final int[][] outputStats;
 
     boolean takeBias = false;
     boolean doShuffle = true;
@@ -42,7 +41,6 @@ public class Network implements Serializable {
         writeTrainLine(arrayToString(sizes));
 
         weights = ArrayLib.getWeights(sizes, MIN, MAX);
-        biases = ArrayLib.getBias(sizes, MIN, MAX);
         activations = new double[sizes.length][];
 
         velocityWeights = new double[sizes.length - 1][][];
@@ -51,6 +49,8 @@ public class Network implements Serializable {
             velocityWeights[i] = new double[sizes[i + 1]][sizes[i]];
             velocityBiases[i] = new double[sizes[i + 1]];
         }
+
+        outputStats = new int[sizes[sizes.length - 1]][3];
     }
 
     void setBias() {
@@ -65,11 +65,8 @@ public class Network implements Serializable {
 
     /*--------------------------------------MLP operations--------------------------------------*/
 
-    // todo: check error and global error
-    // todo: run method
-
-
-    public void onlineEpoch(List<Map.Entry<double[], double[]>> trainData, int epochs, double learningRate, double momentum) {
+    public void onlineEpoch(List<Map.Entry<double[], double[]>> trainData, int epochs,
+                            double learningRate, double momentum) {
         for (int epoch = 0; epoch < epochs; epoch++) {
             double error = 0;
             error = doEpoch(trainData, learningRate, momentum, error);
@@ -115,7 +112,7 @@ public class Network implements Serializable {
                 }
                 if (takeBias) {
                     velocityBiases[i][j] = momentum * velocityBiases[i][j] + learningRate * gradient[i][j][sizes[i]];
-                    biases[i][j] -= velocityBiases[i][j];
+                    weights[i][j][sizes[i]] -= velocityBiases[i][j];
                     error += gradient[i][j][sizes[i]];
                 }
             }
@@ -141,8 +138,11 @@ public class Network implements Serializable {
                     // activation of previous layer * wage for that neuron
                     sum += activations[i - 1][k] * weights[i - 1][j][k];
                 }
+                if (takeBias) {
+                    sum += 1 * weights[i - 1][j][sizes[i - 1]]; // count bias input
+                }
                 // counts activation value for neuron
-                activations[i][j] = sigmoid(sum) + biases[i - 1][j];
+                activations[i][j] = sigmoid(sum);
                 // holds sum value for neuron
                 sums[i - 1][j] = sum;
 
@@ -222,10 +222,10 @@ public class Network implements Serializable {
 
             if (Arrays.equals(scaledOutput, realOutput)) {
                 correct++;
-                addStats(realOutput, 1,0); //
+                addStats(realOutput, 1,true); //
             } else {
-                addStats(realOutput, 0, 0); //
-                addStats(scaledOutput, 0, 1); //
+                addStats(realOutput, 0, true); //
+                addStats(scaledOutput, 1, false); //
             }
             count++;
         }
@@ -233,25 +233,27 @@ public class Network implements Serializable {
         String efficiency = String.format("%.3f",  (correct / (double) testData.size()));
         writeTestLine("test efficiency: " + efficiency);
     }
-    // trueV = 1 -> true positive
-    // falseV = 1 -> false positive
-    // trueV = 0 -> true negative
-    // falseV = 0 -> false negative
-    private void addStats(double[] value, int trueV, int falseV) {
+
+    private void addStats(double[] output, int value, boolean correct) {
         double[] setosa = new double[]{1.0, 0.0, 0.0};
         double[] versicolor = new double[]{0.0, 1.0, 0.0};
         double[] virginica = new double[]{0.0, 0.0, 1.0};
+        int tf;
+        if (correct) {
+            tf = 1;
+        } else {
+            tf = 2;
+        }
 
-        if (Arrays.equals(value, setosa)) {
-            stats[0][0] += trueV; // true positive
-            stats[0][1]++; // all presence
-            stats[0][2] += falseV; // false positive
-        } else if (Arrays.equals(value, versicolor)) {
-            stats[1][0] += trueV;
-            stats[1][1]++;
-        } else if (Arrays.equals(value, virginica)) {
-            stats[2][0] += trueV;
-            stats[2][1]++;
+        if (Arrays.equals(output, setosa)) {
+            outputStats[0][0]++;
+            outputStats[0][tf] += value;
+        } else if (Arrays.equals(output, versicolor)) {
+            outputStats[1][0]++;
+            outputStats[1][tf] += value;
+        } else if (Arrays.equals(output, virginica)) {
+            outputStats[2][0]++;
+            outputStats[2][tf] += value;
         }
     }
 
@@ -285,6 +287,7 @@ public class Network implements Serializable {
     private double sigmoidDerivative(double v) {
         return sigmoid(v) * (1 - sigmoid(v));
     }
+
     /*--------------------------------------String operations--------------------------------------*/
 
     String arrayToString(double[] tab) {
@@ -302,6 +305,7 @@ public class Network implements Serializable {
         }
         return sb.toString();
     }
+
     /*--------------------------------------Statistics--------------------------------------*/
 
     double[] getScaledOutput() { // scale
@@ -311,7 +315,7 @@ public class Network implements Serializable {
 
         int outputMax = 0;
         for (int i = 1; i < outputSize; i++) {
-            if (realOutput[i] > realOutput[i - 1]) {
+            if (realOutput[i] > realOutput[outputMax]) {
                 outputMax = i;
             }
         }
@@ -334,8 +338,7 @@ public class Network implements Serializable {
         writeTestLine(arrayToString(activations[lastLayer]));
         writeTestLine("Last layer weights & biases: ");
         for (int j = 0; j < weights[lastLayer - 1].length; j++) {
-            writeTest(arrayToString(weights[lastLayer - 1][j]) + "| ");
-            writeTestLine(String.valueOf(biases[lastLayer - 1][j]));
+            writeTestLine(arrayToString(weights[lastLayer - 1][j]));
         }
 
         writeTestLine("-------------------------------");
@@ -347,8 +350,7 @@ public class Network implements Serializable {
                 writeTestLine(arrayToString(activations[i + 1]));
                 writeTestLine("Hidden layer weights & biases: ");
                 for (int j = 0; j < weights[i].length; j++) {
-                    writeTest(arrayToString(weights[i][j]) + "| ");
-                    writeTestLine(String.valueOf(biases[i][j]));
+                    writeTestLine(arrayToString(weights[i][j]));
                 }
                 writeTestLine("-------------------------------");
             }
@@ -357,8 +359,8 @@ public class Network implements Serializable {
         writeTestLine("=======================================");
     }
 
-    public int[][] getStats() {
-        return stats;
+    public int[][] getOutputStats() {
+        return outputStats;
     }
 
     private void writeTrainLine(String line) {
@@ -369,10 +371,6 @@ public class Network implements Serializable {
         testStats += line + "\n";
     }
 
-    private void writeTest(String line) {
-        testStats += line;
-    }
-
     public String getTrainStats() {
         return trainStats;
     }
@@ -381,52 +379,5 @@ public class Network implements Serializable {
         return testStats;
     }
 
-    /*-------------------------------Offline learning------------------------------------*/
-
-    public void offline(List<Map.Entry<double[], double[]>> trainData, double learningRate) {
-        int epochCount = trainData.size();
-        int gradientSize = sizes.length - 1;
-        double[][][] bigGradient = new double[gradientSize][][];
-        double[][][] gradient;
-
-        // initialize the network
-        for (int i = 0; i < gradientSize; i++) {
-            bigGradient[i] = new double[sizes[i + 1]][];
-            for (int j = 0; j < sizes[i + 1]; j++) {
-                // create space for weights & bias
-                bigGradient[i][j] = new double[sizes[i] + 1];
-            }
-        }
-
-        // sum of gradients in every epoch
-        for (int epoch = 0; epoch < epochCount; epoch++) {
-            Map.Entry<double[], double[]> current = trainData.get(epoch);
-            countActivations(current.getKey());
-            gradient = countGradientDescent(current.getValue());
-
-            for (int i = 0; i < sizes.length - 1; i++) {
-                for (int j = 0; j < sizes[i + 1]; j++) {
-                    for (int k = 0; k < sizes[i]; k++) {
-                        bigGradient[i][j][k] += gradient[i][j][k];
-                    }
-                }
-            }
-        }
-
-        // update the weights and biases by gradient
-        update(epochCount, learningRate, gradientSize, bigGradient);
-    }
-
-    private void update(int epochCount, double learningRate, int gradientSize, double[][][] bigGradient) {
-        for (int i = 0; i < gradientSize; i++) { // for every layer
-            for (int j = 0; j < sizes[i + 1]; j++) { // for every neuron
-                for (int k = 0; k < sizes[i]; k++) { // set new weights
-                    weights[i][j][k] = weights[i][j][k] - ((learningRate / epochCount) * bigGradient[i][j][k]);
-                }
-                // set new bias
-                biases[i][j] = biases[i][j] - ((learningRate / epochCount) * bigGradient[i][j][sizes[i]]);
-            }
-        }
-    }
 }
 

@@ -25,14 +25,14 @@ public class NetworkTest extends TestCase {
         }
 
         network.onlineEpoch(trainData, 20, 1, 0);
-        //System.out.println(network.getTrainStats());
-        //FileHandler.getFile("train.txt").write(network.getTrainStats());
+        System.out.println(network.getTrainStats());
+        FileHandler.getFile("train.txt").write(network.getTrainStats());
 
         network.testNetwork(testData);
-        //System.out.println(network.getTestStats());
-        //FileHandler.getFile("test.txt").write(network.getTestStats());
+        System.out.println(network.getTestStats());
+        FileHandler.getFile("test.txt").write(network.getTestStats());
 
-        int[][] stats = network.getStats();
+        int[][] stats = network.getOutputStats();
         Statistics statistics = new Statistics(stats);
         System.out.println(statistics.getAllStats());
     }
@@ -50,20 +50,12 @@ public class NetworkTest extends TestCase {
         ArrayList<Map.Entry<double[], double[]>> patterns = getPatterns();
 
         Network network = new Network(new int[]{4, 2, 4});
-        network.onlineEpoch(patterns, 20, 0.6, 0.0);
+        network.setBias();
+        network.onlineEpoch(patterns, 1000, 0.6, 0.0);
         System.out.println(network.getTrainStats());
         network.testNetwork(patterns);
         System.out.println(network.getTestStats());
 
-        System.out.println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
-        System.out.println("bias on");
-
-        Network networkBias = new Network(new int[]{4, 2, 4});
-        networkBias.setBias();
-        networkBias.onlineEpoch(patterns, 20, 0.6, 0.0);
-        System.out.println(networkBias.getTrainStats());
-        networkBias.testNetwork(patterns);
-        System.out.println(networkBias.getTestStats());
     }
 
     public void research(double learningRate, double momentum) {
