@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
+
+<AnchorPane prefHeight="400.0" prefWidth="600.0" xmlns="http://javafx.com/javafx/17.0.2-ea" xmlns:fx="http://javafx.com/fxml/1" fx:controller="Stage">
+   <children>
+      <AnchorPane prefHeight="400.0" prefWidth="600.0">
+         <children>
+            <Label layoutX="14.0" layoutY="14.0" text="Wielowarstwowy perceptron by Daniil Shostik &amp; Franciszek Reniecki">
+               <font>
+                  <Font size="18.0" />
+               </font>
+            </Label>
+            <CheckBox layoutX="360.0" layoutY="100.0" mnemonicParsing="false" text="Bias" />
+            <CheckBox layoutX="360.0" layoutY="134.0" mnemonicParsing="false" text="Momentum" />
+            <TextField layoutX="58.0" layoutY="126.0" prefHeight="26.0" prefWidth="129.0" promptText="podaj liczbe epok" />
+            <Label layoutX="61.0" layoutY="100.0" text="Epochs" />
+         </children></AnchorPane>
+   </children>
+</AnchorPane>
