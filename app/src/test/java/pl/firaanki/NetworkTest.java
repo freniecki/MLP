@@ -38,28 +38,42 @@ public class NetworkTest extends TestCase {
         System.out.println(statistics.getAllStats());
     }
 
-    private static ArrayList<Map.Entry<double[], double[]>> getPatterns() {
-        Map<double[], double[]> patternsMap = new HashMap<>();
-        patternsMap.put(new double[]{1, 0, 0, 0}, new double[]{1, 0, 0, 0});
-        patternsMap.put(new double[]{0, 1, 0, 0}, new double[]{0, 1, 0, 0});
-        patternsMap.put(new double[]{0, 0, 1, 0}, new double[]{0, 0, 1, 0});
-        patternsMap.put(new double[]{0, 0, 0, 1}, new double[]{0, 0, 0, 1});
-        return new ArrayList<>(patternsMap.entrySet());
+    public static void main(String[] args) {
+        checkBias(true, 2, "with bias");
+        checkBias(false, 2, "without bias");
     }
 
-    public static void main(String[] args) {
+    static void checkBias(boolean bias, int hiddenNeurons, String title) {
         ArrayList<Map.Entry<double[], double[]>> patterns = getPatterns();
 
-        Network network = new Network(new int[]{4, 3, 4});
-        //network.setBias();
+        Network network = new Network(new int[]{4, hiddenNeurons, 4});
+        if (bias) {
+            network.setBias();
+        }
+
         network.onlineEpoch(patterns, 1000, 0.6, 0.0);
-        System.out.println(network.getTrainStats());
         network.testNetwork(patterns);
+
         System.out.println(network.getTestStats());
 
+        plot(network.getErrors(), title);
+    }
 
+    public void testAutoencoderResearch() {
+        research(0.9, 0.0, "lr: 0.9, m: 0.0");
+        System.out.println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
+        research(0.6, 0.0, "lr: 0.6, m: 0.0");
+        System.out.println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
+        research(0.2, 0.0, "lr: 0.2, m: 0.0");
+        System.out.println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
+        research(0.9, 0.6,"lr: 0.9, m: 0.6");
+        System.out.println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
+        research(0.2, 0.9, "lr: 0.2, m: 0.9");
+    }
+
+    static void plot(double[] errors, String title) {
         SwingUtilities.invokeLater(() -> {
-            Plot example = new Plot("Error Plot Example", network.getErrors());
+            Plot example = new Plot(title, errors);
             example.setSize(800, 400);
             example.setLocationRelativeTo(null);
             example.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -67,27 +81,22 @@ public class NetworkTest extends TestCase {
         });
     }
 
-    public void research(double learningRate, double momentum) {
+    public void research(double learningRate, double momentum, String title) {
         ArrayList<Map.Entry<double[], double[]>> patterns = getPatterns();
         Network network = new Network(new int[]{4, 2, 4});
         network.setBias();
         network.onlineEpoch(patterns, 20, learningRate, momentum);
-        System.out.println(network.getTrainStats());
         network.testNetwork(patterns);
         System.out.println(network.getTestStats());
+        plot(network.getErrors(), title);
     }
 
-    public void testAutoencoderResearch() {
-        research(0.9, 0.0);
-        System.out.println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
-        research(0.6, 0.0);
-        System.out.println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
-        research(0.2, 0.0);
-        System.out.println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
-        research(0.9, 0.6);
-        System.out.println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
-        research(0.2, 0.9);
-
-
+    private static ArrayList<Map.Entry<double[], double[]>> getPatterns() {
+        Map<double[], double[]> patternsMap = new HashMap<>();
+        patternsMap.put(new double[]{1, 0, 0, 0}, new double[]{1, 0, 0, 0});
+        patternsMap.put(new double[]{0, 1, 0, 0}, new double[]{0, 1, 0, 0});
+        patternsMap.put(new double[]{0, 0, 1, 0}, new double[]{0, 0, 1, 0});
+        patternsMap.put(new double[]{0, 0, 0, 1}, new double[]{0, 0, 0, 1});
+        return new ArrayList<>(patternsMap.entrySet());
     }
 }

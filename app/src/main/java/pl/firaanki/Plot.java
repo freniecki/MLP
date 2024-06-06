@@ -11,13 +11,11 @@ public class Plot extends JFrame {
     public Plot(String title, double[] errors) {
         super(title);
 
-        // Create dataset
         DefaultCategoryDataset dataset = createDataset(errors);
 
-        // Create chart
         JFreeChart chart = ChartFactory.createLineChart(
                 "Error Plot",
-                "Index",
+                "Epochs",
                 "Error Value",
                 dataset,
                 PlotOrientation.VERTICAL,
@@ -32,7 +30,7 @@ public class Plot extends JFrame {
         DefaultCategoryDataset dataset = new DefaultCategoryDataset();
 
         for (int i = 0; i < errors.length; i++) {
-            dataset.addValue(errors[i], "Errors", Integer.toString(i));
+            dataset.addValue(errors[i], "Errors", Integer.toString(i + 1));
         }
 
         return dataset;
